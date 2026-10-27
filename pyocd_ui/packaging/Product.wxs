@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  pyocd_ui - MSI package definition (WiX Toolset v4/v5/v6/v7 schema)
+
+  Application: pyocd_ui
+              Qt6 host tool that connects / erases / downloads / resets
+              STM32 & GD32 chips by calling the bundled pyocd.exe
+              (tools\own_pyocd\pyocd-windows-<ver>\). No mamba/conda needed.
+
+  NOTE:
+    * There is no separate/harvested file list: the  <Files Include="$(var.SourceDir)\**" />
+      element at the bottom makes the WiX compiler itself walk  installer\  and emit
+      one component per file (WiX v4+ replacement for heat.exe). This includes the
+      bundled  pyocd-windows-<ver>\  folder that deploy.ps1 copied in.
+    * build_msi.ps1 compiles this single file, so Product.wxs must stay the only
+      source file of the package.
+    * Preprocessor variables supplied by build_msi.ps1:
+          $(var.ProductVersion)   e.g. 1.0.0
+          $(var.Manufacturer)     publisher shown in Programs and Features
+          $(var.SourceDir)        absolute path of the deploy folder
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="pyocd_ui"
+           Manufacturer="$(var.Manufacturer)"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="{2B7E4C91-8A3D-4E6F-9C5B-1D8A3F6E2B74}"
+           Scope="perMachine"
+           InstallerVersion="200"
+           Compressed="yes">
+
+    <!-- Uninstall any previous version first (major upgrade) -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of pyocd_ui is already installed. Setup will now exit." />
+
+    <!-- Single embedded cabinet, keeps one-file output -->
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Programs and Features: use the icon embedded in the exe -->
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+    <Icon Id="ProductIcon" SourceFile="$(var.SourceDir)\pyocd_ui.exe" />
+
+    <!-- InstallDir flavour of WixUI: user can change INSTALLFOLDER -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+    <Feature Id="MainFeature"
+             Title="pyocd_ui"
+             Description="pyocd firmware downloader for STM32 / GD32 (connect, erase, download, reset). Ships with its own pyocd.exe."
+             Level="1"
+             ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="AppComponents" />
+      <ComponentRef Id="CmpStartMenuShortcut" />
+      <ComponentRef Id="CmpDesktopShortcut" />
+    </Feature>
+
+  </Package>
+
+  <Fragment>
+    <!-- Install location: C:\Program Files\pyocd_ui -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="pyocd_ui" />
+    </StandardDirectory>
+
+    <!-- Start menu folder: ...\Programs\pyocd_ui -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramsFolder" Name="pyocd_ui" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="CmpStartMenuShortcut" Guid="{6A3D9F21-4C7E-4B85-A2D9-3E8F1C5B7A62}">
+        <Shortcut Id="StartMenuShortcut"
+                  Name="pyocd_ui"
+                  Description="pyocd firmware downloader (STM32 / GD32)"
+                  Directory="AppProgramsFolder"
+                  Target="[INSTALLFOLDER]pyocd_ui.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="ProductIcon" />
+        <RemoveFolder Id="RemoveAppProgramsFolder" Directory="AppProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\pyocd_ui" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="CmpDesktopShortcut" Guid="{D4F8A2B6-1E3C-4D79-9B5A-8C2E6F1A3D57}">
+        <Shortcut Id="DesktopShortcut"
+                  Name="pyocd_ui"
+                  Description="pyocd firmware downloader (STM32 / GD32)"
+                  Directory="DesktopFolder"
+                  Target="[INSTALLFOLDER]pyocd_ui.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="ProductIcon" />
+        <RegistryValue Root="HKCU" Key="Software\pyocd_ui" Name="Desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <!--
+    Payload: everything under installer\ (subfolders mirrored 1:1: platforms\,
+    imageformats\, translations\, pyocd-windows-<ver>\...) belongs to
+    INSTALLFOLDER. The compiler expands the wildcard at build time - the file
+    count never has to be kept in sync by hand.
+  -->
+  <Fragment>
+    <ComponentGroup Id="AppComponents" Directory="INSTALLFOLDER">
+      <Files Include="$(var.SourceDir)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
